@@ -1,6 +1,7 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useState } from 'react';
 import Loading from '../components/Loading';
 import Empty from '../components/Empty';
+import TimeRangePicker from '../components/TimeRangePicker';
 import { useAppState } from '../store/timeRangeContext';
 import { useFetch } from '../hooks/useFetch';
 import Modal from '../components/Modal';
@@ -18,7 +19,16 @@ export default function TablePage() {
   const [filters, setFilters] = useState<Record<string, string>>({});
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
-  useEffect(() => { setPage(1); }, [state.timeRange, sort, JSON.stringify(filters)]);
+  // Memoize filters key to avoid expensive JSON.stringify on every render
+  const filtersKey = useMemo(
+    () => Object.entries(filters)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([k, v]) => `${k}:${v}`)
+      .join(','),
+    [filters]
+  );
+
+  useEffect(() => { setPage(1); }, [state.timeRange, sort, filtersKey]);
 
   const qsFilters = useMemo(() =>
     Object.entries(filters)
@@ -42,43 +52,70 @@ export default function TablePage() {
 
   const { data, loading, error } = useFetch<{ items: EventItem[]; page: number; pageSize: number; total: number; totalPages: number }>(url, [url]);
 
-  // Stable callback for filters change
+  // Stable callbacks to prevent unnecessary re-renders
   const handleFiltersChange = useCallback((newFilters: Record<string, string>) => {
     setFilters(newFilters);
   }, []);
 
+  const handleOpenSettings = useCallback(() => {
+    setIsSettingsOpen(true);
+  }, []);
+
+  const handleCloseSettings = useCallback(() => {
+    setIsSettingsOpen(false);
+  }, []);
+
+  const handleSortChange = useCallback((newSort: string) => {
+    setSort(newSort);
+  }, []);
+
   return (
-    <div className="row">
-      {error && <Empty message={error.message} />}
+    <>
+      <TimeRangePicker />
+      
       {loading && !data && <Loading />}
+      
+      {error && (
+        <div className="row">
+          <Empty message={error.message} />
+        </div>
+      )}
+      
       {!loading && !error && data && data.items.length === 0 && (
-        <Empty message="No matching events." />
+        <div className="row">
+          <Empty message="No matching events." />
+        </div>
       )}
-      {data && (
-        <Suspense fallback={<Loading label="Loading table..." />}>
-          <DataTable
-            items={data.items || []}
-            page={data.page || 1}
-            pageSize={data.pageSize || pageSize}
-            total={data.total || 0}
-            totalPages={data.totalPages || 1}
-            sort={sort}
-            onSortChange={setSort}
-            onPageChange={setPage}
-            onFiltersChange={handleFiltersChange}
-            onOpenSettings={() => setIsSettingsOpen(true)}
-          />
-        </Suspense>
+      
+      {/* Only show DataTable when there is actual data to display */}
+      {data && data.items && data.items.length > 0 && (
+        <div className="row">
+          <Suspense fallback={<Loading label="Loading table..." />}>
+            <DataTable
+              items={data.items}
+              page={data.page || 1}
+              pageSize={data.pageSize || pageSize}
+              total={data.total || 0}
+              totalPages={data.totalPages || 1}
+              sort={sort}
+              onSortChange={handleSortChange}
+              onPageChange={setPage}
+              onFiltersChange={handleFiltersChange}
+              onOpenSettings={handleOpenSettings}
+            />
+          </Suspense>
+        </div>
       )}
+      
       {loading && data && <Loading label="Updating..." />}
       
       <Modal
         isOpen={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
+        onClose={handleCloseSettings}
         title="Column Settings"
       >
         <ColumnSelector />
       </Modal>
-    </div>
+    </>
   );
 }

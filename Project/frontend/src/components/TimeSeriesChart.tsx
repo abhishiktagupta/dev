@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useCallback } from 'react';
 
 type Bucket = { timestamp: string; count: number };
 
@@ -9,16 +9,28 @@ export default function TimeSeriesChart({ buckets }: { buckets: Bucket[] }) {
   const w = 800;
   const h = 280;
 
-  const scaleX = (x: number) => padding + ((x - minX) / Math.max(1, maxX - minX)) * (w - padding * 2);
-  const scaleY = (y: number) => h - padding - ((y - minY) / Math.max(1, maxY - minY)) * (h - padding * 2);
+  // Memoize scale functions to prevent recreation on every render
+  const scaleX = useCallback(
+    (x: number) => padding + ((x - minX) / Math.max(1, maxX - minX)) * (w - padding * 2),
+    [minX, maxX]
+  );
 
-  const d = path.map(p => `${p.cmd} ${scaleX(p.x)} ${scaleY(p.y)}`).join(' ');
+  const scaleY = useCallback(
+    (y: number) => h - padding - ((y - minY) / Math.max(1, maxY - minY)) * (h - padding * 2),
+    [minY, maxY]
+  );
+
+  // Memoize path string generation
+  const d = useMemo(
+    () => path.map(p => `${p.cmd} ${scaleX(p.x)} ${scaleY(p.y)}`).join(' '),
+    [path, scaleX, scaleY]
+  );
 
   return (
     <div className="panel">
       <svg className="chart" viewBox={`0 0 ${w} ${h}`} role="img" aria-label="Time series chart">
         <rect x="0" y="0" width={w} height={h} fill="var(--bg-tertiary)" rx="12" />
-        <path d={d} stroke="var(--zscaler-teal)" strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+        <path d={d} stroke="var(--zscaler-cyan)" strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
       <div className="chart-legend">{new Date(minX).toLocaleDateString()} — {new Date(maxX).toLocaleDateString()}</div>
     </div>

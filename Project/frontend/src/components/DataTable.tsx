@@ -61,6 +61,11 @@ export default function DataTable({ items, page, pageSize, total, totalPages, so
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debounced]);
 
+  // Don't render table structure if there are no items
+  if (!items || items.length === 0) {
+    return null;
+  }
+
   return (
     <div className="panel">
       {onOpenSettings && (
