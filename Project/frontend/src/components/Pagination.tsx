@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import { memo, useCallback } from 'react';
 
 type Props = {
   page: number;
@@ -7,7 +7,6 @@ type Props = {
 };
 
 function Pagination({ page, totalPages, onPageChange }: Props) {
-  // Memoize callbacks to prevent unnecessary re-renders
   const handleFirstPage = useCallback(() => onPageChange(1), [onPageChange]);
   const handlePreviousPage = useCallback(() => onPageChange(page - 1), [onPageChange, page]);
   const handleNextPage = useCallback(() => onPageChange(page + 1), [onPageChange, page]);
@@ -61,4 +60,4 @@ function Pagination({ page, totalPages, onPageChange }: Props) {
   );
 }
 
-export default React.memo(Pagination);
+export default memo(Pagination);

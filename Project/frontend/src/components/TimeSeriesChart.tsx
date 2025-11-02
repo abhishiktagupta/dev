@@ -1,16 +1,18 @@
 import { useMemo, useCallback, useState, useRef, useEffect } from 'react';
+import { buildPath, generateAxisLabels, is24HoursOrLess, generateChartDescription, type Bucket, type AxisLabel } from '../utils/chartUtils';
+import { formatTimeWithSeconds, formatTimeRangeLegend } from '../utils/dateUtils';
 
-type Bucket = { timestamp: string; count: number };
 type TimeRange = { start: string; end: string };
+type Point = { x: number; y: number; bucket: Bucket };
 
 const PADDING = 60;
 const LEFT_PADDING = 80;
 const HEIGHT = 280;
-const HOURS_24 = 24 * 60 * 60 * 1000;
 
 export default function TimeSeriesChart({ buckets, timeRange }: { buckets: Bucket[]; timeRange: TimeRange }) {
   const { path, minX, maxX, minY, maxY } = useMemo(() => buildPath(buckets), [buckets]);
-  const [hoveredPoint, setHoveredPoint] = useState<{ x: number; y: number; bucket: Bucket } | null>(null);
+  const [hoveredPoint, setHoveredPoint] = useState<Point | null>(null);
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerWidth, setContainerWidth] = useState(800);
@@ -21,108 +23,49 @@ export default function TimeSeriesChart({ buckets, timeRange }: { buckets: Bucke
     window.addEventListener('resize', updateWidth);
     return () => window.removeEventListener('resize', updateWidth);
   }, []);
-  
+
   if (!buckets.length) return null;
   
   const w = containerWidth;
   const chartWidth = w - PADDING - LEFT_PADDING;
-  const timeDiff = maxX - minX;
-  const is24HoursOrLess = timeDiff <= HOURS_24;
-  const bottomPadding = is24HoursOrLess ? 80 : 60;
+  const is24HoursOrLessValue = is24HoursOrLess(minX, maxX);
+  const bottomPadding = is24HoursOrLessValue ? 80 : 60;
   const chartHeight = HEIGHT - PADDING - bottomPadding;
 
-  const scaleX = (x: number) => LEFT_PADDING + ((x - minX) / Math.max(1, maxX - minX)) * chartWidth;
-  const scaleY = (y: number) => PADDING + chartHeight - ((y - minY) / Math.max(1, maxY - minY)) * chartHeight;
+  const scaleX = useCallback((x: number) => LEFT_PADDING + ((x - minX) / Math.max(1, maxX - minX)) * chartWidth, [minX, maxX, chartWidth]);
+  const scaleY = useCallback((y: number) => PADDING + chartHeight - ((y - minY) / Math.max(1, maxY - minY)) * chartHeight, [minY, maxY, chartHeight]);
 
-  const xAxisLabels = useMemo(() => {
-    const labels: { value: number; label: string; x: number }[] = [];
-    const startDate = new Date(minX);
-    const endDate = new Date(maxX);
-    
-    if (!is24HoursOrLess) {
-      // Date labels for >24 hours
-      const addDateLabel = (date: Date) => {
-        const month = date.toLocaleDateString(undefined, { month: 'short' });
-        const day = date.toLocaleDateString(undefined, { day: 'numeric' });
-        labels.push({ value: date.getTime(), label: `${month} ${day}`, x: scaleX(date.getTime()) });
-      };
-      
-      addDateLabel(startDate);
-      const current = new Date(startDate);
-      current.setDate(current.getDate() + 1);
-      current.setHours(0, 0, 0, 0);
-      
-      while (current < endDate) {
-        if (current.getTime() >= minX && current.getTime() <= maxX) addDateLabel(current);
-        current.setDate(current.getDate() + 1);
-      }
-      
-      if (maxX !== minX) addDateLabel(endDate);
-    } else {
-      // Time labels with seconds for <=24 hours
-      const addTimeLabel = (date: Date) => {
-        labels.push({ value: date.getTime(), label: formatTimeWithSeconds(date), x: scaleX(date.getTime()) });
-      };
-      
-      addTimeLabel(startDate);
-      let current = new Date(startDate);
-      current.setMilliseconds(0);
-      current = new Date(current.getTime() + 1000);
-      
-      while (current.getTime() < maxX) {
-        if (current.getTime() > minX) addTimeLabel(current);
-        current = new Date(current.getTime() + 1000);
-      }
-      
-      if (maxX !== minX && !labels.some(l => l.value === maxX)) addTimeLabel(endDate);
+  useEffect(() => {
+    if (selectedIndex !== null && buckets.length > 0) {
+      const b = buckets[selectedIndex];
+      setHoveredPoint({ x: scaleX(new Date(b.timestamp).getTime()), y: scaleY(b.count), bucket: b });
     }
-    
-    labels.sort((a, b) => a.x - b.x);
-    const minSpacing = is24HoursOrLess ? 30 : 80;
-    const filtered: typeof labels = [labels[0]];
-    
-    for (let i = 1; i < labels.length - 1; i++) {
-      if (labels[i].x - filtered[filtered.length - 1].x >= minSpacing) filtered.push(labels[i]);
-    }
-    
-    const last = labels[labels.length - 1];
-    if (last && last.value !== filtered[filtered.length - 1]?.value) {
-      if (last.x - filtered[filtered.length - 1].x < minSpacing * 0.5 && filtered.length > 1) filtered.pop();
-      filtered.push(last);
-    }
-    
-    return filtered.length ? filtered : labels;
-  }, [minX, maxX, is24HoursOrLess, scaleX]);
+  }, [selectedIndex, buckets, scaleX, scaleY]);
 
+  const xAxisLabels = useMemo(() => generateAxisLabels(minX, maxX, is24HoursOrLessValue, scaleX, formatTimeWithSeconds), [minX, maxX, is24HoursOrLessValue, scaleX]);
   const yAxisLabels = useMemo(() => {
-    const numLabels = 5;
-    const step = (maxY - minY) / (numLabels - 1);
-    return Array.from({ length: numLabels }, (_, i) => {
+    const step = (maxY - minY) / 4;
+    return Array.from({ length: 5 }, (_, i) => {
       const value = minY + step * i;
       return { value, label: Math.round(value).toString(), y: scaleY(value) };
     });
   }, [minY, maxY, scaleY]);
 
-  const pathString = useMemo(
-    () => path.map(p => `${p.cmd} ${scaleX(p.x)} ${scaleY(p.y)}`).join(' '),
-    [path, scaleX, scaleY]
-  );
+  const pathString = useMemo(() => path.map(p => `${p.cmd} ${scaleX(p.x)} ${scaleY(p.y)}`).join(' '), [path, scaleX, scaleY]);
 
   const handleMouseMove = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
     if (!svgRef.current || !buckets.length) return;
-    
     const rect = svgRef.current.getBoundingClientRect();
     const mouseX = ((e.clientX - rect.left) / rect.width) * w;
     const mouseY = ((e.clientY - rect.top) / rect.height) * HEIGHT;
     
-    let closest: { x: number; y: number; bucket: Bucket } | null = null;
+    let closest: Point | null = null;
     let minDist = Infinity;
     
     buckets.forEach((bucket) => {
       const x = scaleX(new Date(bucket.timestamp).getTime());
       const y = scaleY(bucket.count);
       const dist = Math.hypot(mouseX - x, mouseY - y);
-      
       if (dist < minDist && dist < 40) {
         minDist = dist;
         closest = { x, y, bucket };
@@ -132,13 +75,79 @@ export default function TimeSeriesChart({ buckets, timeRange }: { buckets: Bucke
     setHoveredPoint(closest);
   }, [buckets, scaleX, scaleY, w]);
 
-  const formatLegend = useMemo(() => {
-    const fmt = (d: Date) => d.toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-    return `${fmt(new Date(timeRange.start))} — ${fmt(new Date(timeRange.end))}`;
-  }, [timeRange]);
+  const handleKeyDown = useCallback((e: React.KeyboardEvent<SVGSVGElement>) => {
+    if (!buckets.length) return;
+    const key = e.key;
+    
+    if (key === 'ArrowRight' || key === 'ArrowDown') {
+      e.preventDefault();
+      setSelectedIndex(prev => prev === null ? 0 : prev < buckets.length - 1 ? prev + 1 : prev);
+    } else if (key === 'ArrowLeft' || key === 'ArrowUp') {
+      e.preventDefault();
+      setSelectedIndex(prev => prev === null ? buckets.length - 1 : prev > 0 ? prev - 1 : prev);
+    } else if (key === 'Home') {
+      e.preventDefault();
+      setSelectedIndex(0);
+    } else if (key === 'End') {
+      e.preventDefault();
+      setSelectedIndex(buckets.length - 1);
+    } else if (key === 'Escape') {
+      setSelectedIndex(null);
+      setHoveredPoint(null);
+    }
+  }, [buckets]);
+
+  const formatLegend = useMemo(() => formatTimeRangeLegend(timeRange.start, timeRange.end), [timeRange]);
+  const chartDescription = useMemo(() => generateChartDescription(buckets), [buckets]);
+
+  const selectedBucket = selectedIndex !== null ? buckets[selectedIndex] : null;
+  const selectedPoint: Point | null = selectedBucket ? {
+    x: scaleX(new Date(selectedBucket.timestamp).getTime()),
+    y: scaleY(selectedBucket.count),
+    bucket: selectedBucket
+  } : null;
+  const displayPoint = hoveredPoint || selectedPoint;
+
+  const renderXAxisLabel = (label: AxisLabel, i: number) => {
+    const parts = label.label.split(' ');
+    const isDate = parts.length > 1;
+    const isRotated = is24HoursOrLessValue && !isDate;
+    const yBase = HEIGHT - bottomPadding;
+    
+    return (
+      <g key={i}>
+        <line x1={label.x} y1={yBase} x2={label.x} y2={yBase + 5} stroke="var(--border-primary)" strokeWidth="1" />
+        {isDate ? (
+          <g>
+            <text x={label.x} y={yBase + 12} fill="var(--text-primary)" fontSize="11" textAnchor="middle" className="chart-axis-label" fontWeight="500" dominantBaseline="hanging">{parts[1]}</text>
+            <text x={label.x} y={yBase + 26} fill="var(--text-secondary)" fontSize="9" textAnchor="middle" className="chart-axis-label" dominantBaseline="hanging">{parts[0]}</text>
+          </g>
+        ) : isRotated ? (
+          <g transform={`translate(${label.x}, ${yBase + 15}) rotate(-45)`}>
+            <text x="0" y="0" fill="var(--text-primary)" fontSize="9" textAnchor="start" className="chart-axis-label-x" dominantBaseline="middle">{label.label}</text>
+          </g>
+        ) : (
+          <text x={label.x} y={yBase + 20} fill="var(--text-primary)" fontSize="11" textAnchor="middle" className="chart-axis-label" dominantBaseline="hanging">{label.label}</text>
+        )}
+      </g>
+    );
+  };
+
+  const renderTooltip = (point: Point) => {
+    const tooltipY = point.y < 100 ? -60 : 15;
+    const timestampStr = new Date(point.bucket.timestamp).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    return (
+      <g transform={`translate(${point.x}, ${point.y})`} role="tooltip">
+        <rect x="-70" y={tooltipY} width="140" height="45" fill="var(--bg-primary)" stroke="var(--border-primary)" rx="4" opacity="0.95" filter="drop-shadow(0 2px 8px rgba(0, 0, 0, 0.3))" />
+        <text x="0" y={tooltipY + 18} fill="var(--text-primary)" fontSize="10" textAnchor="middle" fontWeight="600">{timestampStr}</text>
+        <text x="0" y={tooltipY + 32} fill="var(--zscaler-cyan)" fontSize="11" textAnchor="middle" fontWeight="600">{point.bucket.count} events</text>
+      </g>
+    );
+  };
 
   return (
     <div className="panel chart-container" ref={containerRef}>
+      <div className="sr-only" id="chart-description">{chartDescription}</div>
       <svg 
         ref={svgRef}
         className="chart" 
@@ -146,38 +155,19 @@ export default function TimeSeriesChart({ buckets, timeRange }: { buckets: Bucke
         preserveAspectRatio="xMidYMid meet"
         role="img" 
         aria-label="Time series chart"
+        aria-describedby="chart-description"
+        tabIndex={0}
         onMouseMove={handleMouseMove}
-        onMouseLeave={() => setHoveredPoint(null)}
+        onMouseLeave={() => selectedIndex === null && setHoveredPoint(null)}
+        onKeyDown={handleKeyDown}
+        onFocus={() => selectedIndex === null && buckets.length > 0 && setSelectedIndex(0)}
         style={{ width: '100%', height: 'auto' }}
       >
         <rect x="0" y="0" width={w} height={HEIGHT} fill="var(--bg-tertiary)" rx="12" />
         <line x1={LEFT_PADDING} y1={HEIGHT - bottomPadding} x2={w - PADDING} y2={HEIGHT - bottomPadding} stroke="var(--border-primary)" strokeWidth="1" />
         <line x1={LEFT_PADDING} y1={PADDING} x2={LEFT_PADDING} y2={HEIGHT - bottomPadding} stroke="var(--border-primary)" strokeWidth="1" />
         
-        {xAxisLabels.map((label, i) => {
-          const parts = label.label.split(' ');
-          const isDate = parts.length > 1;
-          const isRotated = is24HoursOrLess && !isDate;
-          const yBase = HEIGHT - bottomPadding;
-          
-          return (
-            <g key={i}>
-              <line x1={label.x} y1={yBase} x2={label.x} y2={yBase + 5} stroke="var(--border-primary)" strokeWidth="1" />
-              {isDate ? (
-                <g>
-                  <text x={label.x} y={yBase + 12} fill="var(--text-primary)" fontSize="11" textAnchor="middle" className="chart-axis-label" fontWeight="500" dominantBaseline="hanging">{parts[1]}</text>
-                  <text x={label.x} y={yBase + 26} fill="var(--text-secondary)" fontSize="9" textAnchor="middle" className="chart-axis-label" dominantBaseline="hanging">{parts[0]}</text>
-                </g>
-              ) : isRotated ? (
-                <g transform={`translate(${label.x}, ${yBase + 15}) rotate(-45)`}>
-                  <text x="0" y="0" fill="var(--text-primary)" fontSize="9" textAnchor="start" className="chart-axis-label-x" dominantBaseline="middle">{label.label}</text>
-                </g>
-              ) : (
-                <text x={label.x} y={yBase + 20} fill="var(--text-primary)" fontSize="11" textAnchor="middle" className="chart-axis-label" dominantBaseline="hanging">{label.label}</text>
-              )}
-            </g>
-          );
-        })}
+        {xAxisLabels.map(renderXAxisLabel)}
         
         {yAxisLabels.map((label, i) => (
           <g key={i}>
@@ -185,52 +175,33 @@ export default function TimeSeriesChart({ buckets, timeRange }: { buckets: Bucke
             <text x={LEFT_PADDING - 10} y={label.y + 4} fill="var(--text-primary)" fontSize="11" textAnchor="end" className="chart-axis-label">{label.label}</text>
           </g>
         ))}
+        
         <text x="15" y={HEIGHT / 2} fill="var(--text-primary)" fontSize="12" textAnchor="middle" className="chart-axis-label" transform={`rotate(-90, 15, ${HEIGHT / 2})`} fontWeight="500">No of events</text>
-        <path d={pathString} stroke="var(--zscaler-cyan)" strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-        {hoveredPoint && (
-          <g>
-            <circle cx={hoveredPoint.x} cy={hoveredPoint.y} r="5" fill="var(--zscaler-cyan)" stroke="var(--bg-tertiary)" strokeWidth="2" />
-            {(() => {
-              const tooltipY = hoveredPoint.y < 100 ? -60 : 15;
-              return (
-                <g transform={`translate(${hoveredPoint.x}, ${hoveredPoint.y})`}>
-                  <rect x="-70" y={tooltipY} width="140" height="45" fill="var(--bg-primary)" stroke="var(--border-primary)" rx="4" opacity="0.95" filter="drop-shadow(0 2px 8px rgba(0, 0, 0, 0.3))" />
-                  <text x="0" y={tooltipY + 18} fill="var(--text-primary)" fontSize="10" textAnchor="middle" fontWeight="600">
-                    {new Date(hoveredPoint.bucket.timestamp).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                  </text>
-                  <text x="0" y={tooltipY + 32} fill="var(--zscaler-cyan)" fontSize="11" textAnchor="middle" fontWeight="600">{hoveredPoint.bucket.count} events</text>
-                </g>
-              );
-            })()}
+        <path d={pathString} stroke="var(--zscaler-cyan)" strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round" aria-label="Chart line showing event count over time" />
+        
+        {displayPoint && (
+          <g role="presentation">
+            <circle 
+              cx={displayPoint.x} 
+              cy={displayPoint.y} 
+              r="5" 
+              fill="var(--zscaler-cyan)" 
+              stroke="var(--bg-tertiary)" 
+              strokeWidth="2"
+              aria-label={`Selected data point: ${displayPoint.bucket.count} events at ${new Date(displayPoint.bucket.timestamp).toLocaleString()}`}
+            />
+            {renderTooltip(displayPoint)}
           </g>
         )}
       </svg>
-      <div className="chart-legend">{formatLegend}</div>
+      
+      <div className="chart-legend" aria-label={`Time range: ${formatLegend}`}>{formatLegend}</div>
+      
+      {selectedPoint && (
+        <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+          Selected: {selectedPoint.bucket.count} events at {new Date(selectedPoint.bucket.timestamp).toLocaleString()}. Point {selectedIndex !== null ? selectedIndex + 1 : 0} of {buckets.length}.
+        </div>
+      )}
     </div>
   );
-}
-
-function formatTimeWithSeconds(date: Date): string {
-  const hours = String(date.getHours()).padStart(2, '0');
-  const minutes = String(date.getMinutes()).padStart(2, '0');
-  const seconds = String(date.getSeconds()).padStart(2, '0');
-  return `${hours}:${minutes}:${seconds}`;
-}
-
-function buildPath(buckets: Bucket[]) {
-  if (!buckets?.length) return { path: [], minX: 0, maxX: 0, minY: 0, maxY: 0 };
-  
-  const validBuckets = buckets.filter(b => !isNaN(new Date(b.timestamp).getTime()));
-  if (!validBuckets.length) return { path: [], minX: 0, maxX: 0, minY: 0, maxY: 0 };
-  
-  const xs = validBuckets.map(b => new Date(b.timestamp).getTime());
-  const ys = validBuckets.map(b => b.count);
-  
-  return {
-    path: validBuckets.map((b, i) => ({ cmd: i === 0 ? 'M' : 'L', x: new Date(b.timestamp).getTime(), y: b.count })),
-    minX: Math.min(...xs),
-    maxX: Math.max(...xs),
-    minY: 0,
-    maxY: Math.max(1, Math.max(...ys))
-  };
 }

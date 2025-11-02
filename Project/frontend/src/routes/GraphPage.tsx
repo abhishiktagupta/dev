@@ -14,13 +14,25 @@ export default function GraphPage() {
   const { data, loading, error } = useFetch<{ buckets: { timestamp: string; count: number }[]; total: number }>(url, [state.timeRange]);
 
   return (
-    <div className="graph-page">
+    <div className="graph-page" aria-busy={loading} aria-live="polite">
       <TimeRangePicker />
-      {loading && <Loading />}
-      {error && <Empty message={error.message} />}
+      {loading && (
+        <div aria-live="polite" aria-busy="true">
+          <Loading />
+        </div>
+      )}
+      {error && (
+        <div role="alert" aria-live="assertive">
+          <Empty message={error.message} />
+        </div>
+      )}
       {!loading && !error && (
         data?.buckets?.length ? (
-          <Suspense fallback={<Loading label="Loading chart..." />}>
+          <Suspense fallback={
+            <div aria-live="polite" aria-busy="true">
+              <Loading label="Loading chart..." />
+            </div>
+          }>
             <TimeSeriesChart buckets={data!.buckets} timeRange={state.timeRange} />
           </Suspense>
         ) : (

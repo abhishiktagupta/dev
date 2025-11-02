@@ -43,6 +43,8 @@ export default function DataTable({ items, page, pageSize, total, totalPages, so
   const { state } = useAppState();
   const [filters, setFilters] = useState<Record<string, string>>({});
   const debounced = useDebounce(filters, 400);
+  const [sortAnnouncement, setSortAnnouncement] = useState<string>('');
+  const [filterAnnouncement, setFilterAnnouncement] = useState<string>('');
 
   const visibleColumns = state.visibleColumns;
 
@@ -55,17 +57,44 @@ export default function DataTable({ items, page, pageSize, total, totalPages, so
 
   const applyFilterChange = (key: string, value: string) => {
     setFilters(prev => ({ ...prev, [key]: value }));
+    const label = COLUMN_LABELS[key] || key;
+    if (value.trim()) {
+      setFilterAnnouncement(`Filtering ${label} by ${value}`);
+    } else {
+      setFilterAnnouncement(`Cleared ${label} filter`);
+    }
   };
 
   useEffect(() => {
     onFiltersChange(debounced);
+    if (Object.keys(debounced).length > 0) {
+      const activeFilters = Object.entries(debounced)
+        .filter(([, v]) => v && v.trim())
+        .map(([k, v]) => `${COLUMN_LABELS[k] || k}: ${v}`)
+        .join(', ');
+      setFilterAnnouncement(activeFilters ? `Active filters: ${activeFilters}` : '');
+    } else {
+      setFilterAnnouncement('');
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debounced]);
+
+  const handleSortChange = (newSort: string) => {
+    const [field, direction] = newSort.split(':');
+    const label = COLUMN_LABELS[field] || field;
+    setSortAnnouncement(`Sorted by ${label}, ${direction === 'asc' ? 'ascending' : 'descending'}`);
+    onSortChange(newSort);
+  };
 
   const hasItems = items && items.length > 0;
 
   return (
     <div className="panel">
+      <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+        {sortAnnouncement && <span>{sortAnnouncement}</span>}
+        {filterAnnouncement && <span>{filterAnnouncement}</span>}
+        {hasItems && <span>Showing {items.length} of {total} events, page {page} of {totalPages}</span>}
+      </div>
       {onOpenSettings && (
         <div className="settings-button-container">
           <button 
@@ -86,17 +115,27 @@ export default function DataTable({ items, page, pageSize, total, totalPages, so
         </div>
       )}
       <div className="table-wrapper">
-        <table className="table" role="table" aria-label="Events table" aria-rowcount={(hasItems ? items.length : 0) + 1} aria-colcount={headers.length}>
+        <table 
+          className="table" 
+          role="table" 
+          aria-label="Events table" 
+          aria-rowcount={(hasItems ? items.length : 0) + 1} 
+          aria-colcount={headers.length}
+          aria-describedby="table-summary"
+        >
+          <caption id="table-summary" className="sr-only">
+            Events table with {headers.length} columns and {hasItems ? items.length : 0} rows. Use sort buttons in column headers to sort data. Use filter inputs to filter by column values.
+          </caption>
           <thead>
             <tr role="row" aria-rowindex={1}>
               {headers.map((h, colIdx) => (
                 <th key={h.key} role="columnheader" aria-sort={sortField === h.key ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'} scope="col" aria-colindex={colIdx + 1}>
                   <button 
-                    onClick={() => onSortChange(`${h.key}:${sortField === h.key && sortDir === 'asc' ? 'desc' : 'asc'}`)}
+                    onClick={() => handleSortChange(`${h.key}:${sortField === h.key && sortDir === 'asc' ? 'desc' : 'asc'}`)}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' || e.key === ' ') {
                         e.preventDefault();
-                        onSortChange(`${h.key}:${sortField === h.key && sortDir === 'asc' ? 'desc' : 'asc'}`);
+                        handleSortChange(`${h.key}:${sortField === h.key && sortDir === 'asc' ? 'desc' : 'asc'}`);
                       }
                     }}
                     aria-label={`Sort by ${h.label}, ${sortField === h.key ? (sortDir === 'asc' ? 'currently ascending' : 'currently descending') : 'not sorted'}`}
@@ -123,17 +162,17 @@ export default function DataTable({ items, page, pageSize, total, totalPages, so
           <tbody>
             {hasItems ? (
               items.map((row, idx) => (
-                <tr key={row.id} role="row" aria-rowindex={idx + 2}>
+                <tr key={row.id} role="row" aria-rowindex={idx + 2} aria-label={`Row ${idx + 1}: ${row.type || 'Event'} from ${new Date(row.timestamp).toLocaleString()}`}>
                   {headers.map((h, colIdx) => (
-                    <td key={h.key} role="gridcell" aria-colindex={colIdx + 1}>{renderCell(row, h.key)}</td>
+                    <td key={h.key} role="gridcell" aria-colindex={colIdx + 1} aria-label={`${h.label}: ${renderCell(row, h.key)?.toString() || ''}`}>{renderCell(row, h.key)}</td>
                   ))}
                 </tr>
               ))
             ) : (
               <tr role="row">
-                <td colSpan={headers.length} className="table-empty-cell">
+                <td colSpan={headers.length} className="table-empty-cell" role="status">
                   <div className="table-empty-state">
-                    <p className="table-empty-message">No matching events.</p>
+                    <p className="table-empty-message" aria-live="polite">No matching events.</p>
                   </div>
                 </td>
               </tr>

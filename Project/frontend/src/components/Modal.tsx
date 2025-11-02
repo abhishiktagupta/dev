@@ -1,14 +1,13 @@
-import React, { useEffect, useCallback } from 'react';
+import { memo, useEffect, useCallback, type ReactNode } from 'react';
 
 type Props = {
   isOpen: boolean;
   onClose: () => void;
   title: string;
-  children: React.ReactNode;
+  children: ReactNode;
 };
 
 function Modal({ isOpen, onClose, title, children }: Props) {
-  // Memoize escape handler to prevent recreating event listener
   const handleEscape = useCallback((e: KeyboardEvent) => {
     if (e.key === 'Escape') onClose();
   }, [onClose]);
@@ -52,10 +51,7 @@ function Modal({ isOpen, onClose, title, children }: Props) {
   );
 }
 
-// Memoize with custom comparison - only re-render if isOpen or title changes
-// Note: children comparison by reference may cause false positives, but is acceptable for Modal
-export default React.memo(Modal, (prevProps, nextProps) => {
-  return prevProps.isOpen === nextProps.isOpen && 
-         prevProps.title === nextProps.title;
-});
+export default memo(Modal, (prevProps, nextProps) => 
+  prevProps.isOpen === nextProps.isOpen && prevProps.title === nextProps.title
+);
 

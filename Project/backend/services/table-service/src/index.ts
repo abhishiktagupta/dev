@@ -84,6 +84,4 @@ app.get('/events', (req, res) => {
 });
 
 const PORT = process.env.PORT || 4002;
-app.listen(PORT, () => {
-  // Service started successfully
-});
+app.listen(PORT);

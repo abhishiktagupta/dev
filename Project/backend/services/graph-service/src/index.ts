@@ -13,25 +13,6 @@ function toDateOnlyISO(d: Date): string {
   return `${y}-${m}-${day}T00:00:00.000Z`;
 }
 
-function toHourISO(d: Date): string {
-  const y = d.getUTCFullYear();
-  const m = String(d.getUTCMonth() + 1).padStart(2, '0');
-  const day = String(d.getUTCDate()).padStart(2, '0');
-  const hour = String(d.getUTCHours()).padStart(2, '0');
-  return `${y}-${m}-${day}T${hour}:00:00.000Z`;
-}
-
-function toMinutesISO(d: Date, intervalMinutes: number = 1): string {
-  const y = d.getUTCFullYear();
-  const m = String(d.getUTCMonth() + 1).padStart(2, '0');
-  const day = String(d.getUTCDate()).padStart(2, '0');
-  const hour = d.getUTCHours();
-  const minutes = Math.floor(d.getUTCMinutes() / intervalMinutes) * intervalMinutes;
-  const h = String(hour).padStart(2, '0');
-  const mm = String(minutes).padStart(2, '0');
-  return `${y}-${m}-${day}T${h}:${mm}:00.000Z`;
-}
-
 function toSecondsISO(d: Date, intervalSeconds: number = 1): string {
   const y = d.getUTCFullYear();
   const m = String(d.getUTCMonth() + 1).padStart(2, '0');
@@ -63,21 +44,14 @@ app.get('/events/count', (req, res) => {
     }
 
     // Calculate time range to determine bucket size
-    let bucketByHour = false;
-    let bucketByMinutes = false;
     let bucketBySeconds = false;
-    let bucketIntervalMinutes = 1;
-    let bucketIntervalSeconds = 1;
     
     if (start && end) {
       const timeDiff = end.getTime() - start.getTime();
-      const hours12 = 12 * 60 * 60 * 1000;
       const hours24 = 24 * 60 * 60 * 1000;
       
       if (timeDiff > 0 && timeDiff <= hours24) {
-        // For <= 24 hours, bucket by second for maximum granularity
         bucketBySeconds = true;
-        bucketIntervalSeconds = 1;
       }
     }
 
@@ -107,11 +81,7 @@ app.get('/events/count', (req, res) => {
       if (isNaN(eventDate.getTime())) continue; // Skip invalid dates
       
       const key = bucketBySeconds
-        ? toSecondsISO(eventDate, bucketIntervalSeconds)
-        : bucketByMinutes
-        ? toMinutesISO(eventDate, bucketIntervalMinutes)
-        : bucketByHour 
-        ? toHourISO(eventDate)
+        ? toSecondsISO(eventDate, 1)
         : toDateOnlyISO(eventDate);
       map.set(key, (map.get(key) || 0) + 1);
     }
@@ -133,6 +103,4 @@ app.get('/events/count', (req, res) => {
 });
 
 const PORT = process.env.PORT || 4001;
-app.listen(PORT, () => {
-  // Service started successfully
-});
+app.listen(PORT);
