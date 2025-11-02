@@ -1,15 +1,22 @@
+import React, { useCallback } from 'react';
+
 type Props = {
   page: number;
   totalPages: number;
   onPageChange: (page: number) => void;
 };
 
-export default function Pagination({ page, totalPages, onPageChange }: Props) {
+function Pagination({ page, totalPages, onPageChange }: Props) {
+  // Memoize callbacks to prevent unnecessary re-renders
+  const handleFirstPage = useCallback(() => onPageChange(1), [onPageChange]);
+  const handlePreviousPage = useCallback(() => onPageChange(page - 1), [onPageChange, page]);
+  const handleNextPage = useCallback(() => onPageChange(page + 1), [onPageChange, page]);
+  const handleLastPage = useCallback(() => onPageChange(totalPages), [onPageChange, totalPages]);
   return (
     <nav className="pagination" role="navigation" aria-label="Pagination">
       <button 
         className="btn-icon" 
-        onClick={() => onPageChange(1)} 
+        onClick={handleFirstPage} 
         disabled={page <= 1} 
         aria-label="First page"
         aria-disabled={page <= 1}
@@ -19,7 +26,7 @@ export default function Pagination({ page, totalPages, onPageChange }: Props) {
       </button>
       <button 
         className="btn-icon" 
-        onClick={() => onPageChange(page - 1)} 
+        onClick={handlePreviousPage} 
         disabled={page <= 1} 
         aria-label="Previous page"
         aria-disabled={page <= 1}
@@ -32,7 +39,7 @@ export default function Pagination({ page, totalPages, onPageChange }: Props) {
       </span>
       <button 
         className="btn-icon" 
-        onClick={() => onPageChange(page + 1)} 
+        onClick={handleNextPage} 
         disabled={page >= totalPages} 
         aria-label="Next page"
         aria-disabled={page >= totalPages}
@@ -42,7 +49,7 @@ export default function Pagination({ page, totalPages, onPageChange }: Props) {
       </button>
       <button 
         className="btn-icon" 
-        onClick={() => onPageChange(totalPages)} 
+        onClick={handleLastPage} 
         disabled={page >= totalPages} 
         aria-label="Last page"
         aria-disabled={page >= totalPages}
@@ -53,3 +60,5 @@ export default function Pagination({ page, totalPages, onPageChange }: Props) {
     </nav>
   );
 }
+
+export default React.memo(Pagination);

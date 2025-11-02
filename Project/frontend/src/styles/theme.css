@@ -1,46 +1,56 @@
-/* Zscaler-inspired Theme Variables */
+/* Zscaler-inspired Theme Variables - Based on Zscaler Zero Trust Exchange Design */
 :root {
-  /* Primary Colors - Zscaler Blue/Teal */
+  /* Primary Colors - Zscaler Cyan/Teal (Light Blue Accent) */
+  --zscaler-cyan: #00D9FF;
+  --zscaler-cyan-light: #33E0FF;
+  --zscaler-cyan-dark: #00B8E6;
   --zscaler-blue: #0066CC;
   --zscaler-blue-light: #3385D6;
   --zscaler-blue-dark: #0052A3;
-  --zscaler-teal: #00A8E8;
-  --zscaler-teal-light: #33B9ED;
   
-  /* Graph/Table Action Color */
-  --action-green: rgb(107, 255, 179);
-  --action-green-dark: rgb(85, 204, 143);
-  --action-green-hover: rgb(128, 255, 204);
+  /* Legacy teal - now using cyan */
+  --zscaler-teal: var(--zscaler-cyan);
+  --zscaler-teal-light: var(--zscaler-cyan-light);
   
-  /* Neutral Colors */
-  --bg-primary: rgb(0, 23, 68);
-  --bg-secondary: #1E293B;
-  --bg-tertiary: #2D3748;
-  --bg-hover: #253547;
-  --bg-active: #1E3A5F;
+  /* Graph/Table Action Color - Using Zscaler Cyan */
+  --action-green: var(--zscaler-cyan);
+  --action-green-dark: var(--zscaler-cyan-dark);
+  --action-green-hover: var(--zscaler-cyan-light);
   
-  /* Text Colors */
-  --text-primary: #F8FAFC;
-  --text-secondary: #CBD5E1;
-  --text-muted: #94A3B8;
-  --text-disabled: #64748B;
+  /* Background Colors - Very Dark Blue/Black with subtle blue tint */
+  --bg-primary: #0A0E1A;
+  --bg-primary-subtle: rgba(10, 14, 26, 0.95);
+  --bg-secondary: #151A2E;
+  --bg-secondary-hover: #1A2235;
+  --bg-tertiary: #1E2840;
+  --bg-hover: #232D46;
+  --bg-active: rgba(0, 217, 255, 0.15);
+  --bg-selected: rgba(0, 217, 255, 0.2);
   
-  /* Border Colors */
-  --border-primary: #334155;
-  --border-secondary: #475569;
-  --border-focus: var(--zscaler-blue);
+  /* Text Colors - Pure White for maximum contrast */
+  --text-primary: #FFFFFF;
+  --text-secondary: #E8EBF0;
+  --text-muted: #B8C5D6;
+  --text-disabled: #7A8899;
+  --text-accent: var(--zscaler-cyan);
+  
+  /* Border Colors - Subtle but visible */
+  --border-primary: rgba(255, 255, 255, 0.1);
+  --border-secondary: rgba(255, 255, 255, 0.15);
+  --border-accent: rgba(0, 217, 255, 0.3);
+  --border-focus: var(--zscaler-cyan);
   
   /* Status Colors */
-  --success: #10B981;
-  --warning: #F59E0B;
-  --error: #EF4444;
-  --info: var(--zscaler-teal);
+  --success: #00E676;
+  --warning: #FFB300;
+  --error: #FF5252;
+  --info: var(--zscaler-cyan);
   
-  /* Severity Colors */
-  --severity-low: #10B981;
-  --severity-medium: #F59E0B;
-  --severity-high: #EF4444;
-  --severity-critical: #DC2626;
+  /* Severity Colors - More vibrant for better visibility */
+  --severity-low: #00E676;
+  --severity-medium: #FFB300;
+  --severity-high: #FF5252;
+  --severity-critical: #FF1744;
   
   /* Shadows */
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
@@ -76,11 +86,16 @@
 html, body, #root {
   height: 100%;
   margin: 0;
-  background: var(--bg-primary);
+  /* Dark blue/black background with subtle blue tint - matching Zscaler design */
+  background: 
+    radial-gradient(circle at 20% 50%, rgba(0, 102, 204, 0.03) 0%, transparent 50%),
+    radial-gradient(circle at 80% 80%, rgba(0, 217, 255, 0.02) 0%, transparent 50%),
+    var(--bg-primary);
   color: var(--text-primary);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  line-height: 1.6;
 }
 
 /* Common Utilities */
@@ -90,6 +105,7 @@ html, body, #root {
   padding: var(--spacing-xl);
   box-shadow: var(--shadow-md);
   border: 1px solid var(--border-primary);
+  backdrop-filter: blur(10px);
 }
 
 .row {
@@ -255,33 +271,35 @@ button.btn-settings {
 
 button.btn-settings:hover {
   background: var(--bg-hover);
-  border-color: var(--zscaler-blue);
-  color: var(--zscaler-teal);
+  border-color: var(--zscaler-cyan);
+  color: var(--zscaler-cyan);
 }
 
 /* Graph/Table Action Buttons */
 button.btn-action {
-  background: var(--action-green);
-  border-color: var(--action-green);
-  color: var(--bg-primary);
+  background: var(--zscaler-cyan);
+  border-color: var(--zscaler-cyan);
+  color: #000000;
   font-weight: 600;
+  box-shadow: 0 0 10px rgba(0, 217, 255, 0.3);
 }
 
 button.btn-action:hover:not(:disabled) {
-  background: var(--action-green-hover);
-  border-color: var(--action-green-hover);
-  color: var(--bg-primary);
-  box-shadow: 0 0 0 3px rgba(107, 255, 179, 0.2);
+  background: var(--zscaler-cyan-light);
+  border-color: var(--zscaler-cyan-light);
+  color: #000000;
+  box-shadow: 0 0 15px rgba(0, 217, 255, 0.4);
 }
 
 button.btn-action:focus-visible {
-  outline: 3px solid rgba(107, 255, 179, 0.5);
+  outline: 3px solid var(--zscaler-cyan);
   outline-offset: 2px;
+  outline-opacity: 0.7;
 }
 
 button.btn-action:active:not(:disabled) {
-  background: var(--action-green-dark);
-  border-color: var(--action-green-dark);
+  background: var(--zscaler-cyan-dark);
+  border-color: var(--zscaler-cyan-dark);
 }
 
 /* Severity Badges */
@@ -313,8 +331,8 @@ button.btn-action:active:not(:disabled) {
 code {
   font-family: 'Courier New', Courier, monospace;
   font-size: 13px;
-  color: var(--zscaler-teal);
-  background: rgba(0, 168, 232, 0.1);
+  color: var(--zscaler-cyan);
+  background: rgba(0, 217, 255, 0.1);
   padding: 2px 6px;
   border-radius: var(--radius-sm);
 }

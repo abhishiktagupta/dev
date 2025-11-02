@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useMemo, useReducer } from 'react';
+import React, { createContext, useContext, useMemo, useReducer, useCallback } from 'react';
 
 export type TimeRange = { start: string; end: string };
 export type AppState = {
@@ -40,13 +40,24 @@ const Ctx = createContext<{
 export function TimeRangeProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(reducer, initialState);
 
+  // Stable function references to prevent unnecessary re-renders
+  const setTimeRange = useCallback(
+    (range: TimeRange) => dispatch({ type: 'setTimeRange', payload: range }),
+    []
+  );
+
+  const setVisibleColumns = useCallback(
+    (cols: string[]) => dispatch({ type: 'setVisibleColumns', payload: cols }),
+    []
+  );
+
   const value = useMemo(
     () => ({
       state,
-      setTimeRange: (range: TimeRange) => dispatch({ type: 'setTimeRange', payload: range }),
-      setVisibleColumns: (cols: string[]) => dispatch({ type: 'setVisibleColumns', payload: cols })
+      setTimeRange,
+      setVisibleColumns,
     }),
-    [state]
+    [state, setTimeRange, setVisibleColumns]
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
