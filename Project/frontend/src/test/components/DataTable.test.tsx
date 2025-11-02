@@ -141,10 +141,11 @@ describe('DataTable', () => {
   });
 
   it('displays pagination info', () => {
-    customRender(<DataTable {...defaultProps} />);
+    customRender(<DataTable {...defaultProps} onPageSizeChange={jest.fn()} />);
     
     expect(screen.getByText(/Total: 2/i)).toBeInTheDocument();
-    expect(screen.getByText(/Page size: 5/i)).toBeInTheDocument();
+    expect(screen.getByText(/Records per page:/i)).toBeInTheDocument();
+    expect(screen.getByLabelText('Select number of records per page')).toHaveValue('5');
   });
 
   it('renders settings button when onOpenSettings is provided', () => {

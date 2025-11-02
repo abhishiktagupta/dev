@@ -10,7 +10,11 @@ jest.mock('../../components/DataTable', () => {
     __esModule: true,
     default: ({ items, onOpenSettings }: { items: EventItem[]; onOpenSettings?: () => void }) => (
       <div data-testid="data-table">
-        <div data-testid="item-count">{items.length} items</div>
+        {items.length > 0 ? (
+          <div data-testid="item-count">{items.length} items</div>
+        ) : (
+          <p className="table-empty-message">No matching events.</p>
+        )}
         {onOpenSettings && (
           <button onClick={onOpenSettings} data-testid="open-settings">
             Open Settings
@@ -69,7 +73,7 @@ describe('TablePage', () => {
     expect(screen.getByText('Loading…')).toBeInTheDocument();
   });
 
-  it('shows empty state when no items', () => {
+  it('shows empty state when no items', async () => {
     mockUseFetch.mockReturnValue({
       data: { items: [], page: 1, pageSize: 5, total: 0, totalPages: 0 },
       loading: false,
@@ -77,6 +81,10 @@ describe('TablePage', () => {
     });
 
     customRender(<TablePage />);
+    
+    // Wait for Suspense to resolve and DataTable to render
+    await screen.findByTestId('data-table');
+    
     expect(screen.getByText('No matching events.')).toBeInTheDocument();
   });
 

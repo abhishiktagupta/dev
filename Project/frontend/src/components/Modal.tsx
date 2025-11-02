@@ -1,5 +1,4 @@
-import { useEffect, useCallback } from 'react';
-import React from 'react';
+import React, { useEffect, useCallback } from 'react';
 
 type Props = {
   isOpen: boolean;

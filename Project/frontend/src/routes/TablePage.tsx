@@ -14,7 +14,7 @@ const DataTable = lazy(() => import('../components/DataTable'));
 export default function TablePage() {
   const { state } = useAppState();
   const [page, setPage] = useState(1);
-  const [pageSize] = useState(5);
+  const [pageSize, setPageSize] = useState(5);
   const [sort, setSort] = useState('timestamp:desc');
   const [filters, setFilters] = useState<Record<string, string>>({});
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -28,7 +28,7 @@ export default function TablePage() {
     [filters]
   );
 
-  useEffect(() => { setPage(1); }, [state.timeRange, sort, filtersKey]);
+  useEffect(() => { setPage(1); }, [state.timeRange, sort, filtersKey, pageSize]);
 
   const qsFilters = useMemo(() =>
     Object.entries(filters)
@@ -69,6 +69,11 @@ export default function TablePage() {
     setSort(newSort);
   }, []);
 
+  const handlePageSizeChange = useCallback((newPageSize: number) => {
+    setPageSize(newPageSize);
+    setPage(1); // Reset to first page when page size changes
+  }, []);
+
   return (
     <>
       <TimeRangePicker />
@@ -81,18 +86,12 @@ export default function TablePage() {
         </div>
       )}
       
-      {!loading && !error && data && data.items.length === 0 && (
-        <div className="row">
-          <Empty message="No matching events." />
-        </div>
-      )}
-      
-      {/* Only show DataTable when there is actual data to display */}
-      {data && data.items && data.items.length > 0 && (
+      {/* Always show DataTable when data is available, even if empty */}
+      {!error && data && (
         <div className="row">
           <Suspense fallback={<Loading label="Loading table..." />}>
             <DataTable
-              items={data.items}
+              items={data.items || []}
               page={data.page || 1}
               pageSize={data.pageSize || pageSize}
               total={data.total || 0}
@@ -100,6 +99,7 @@ export default function TablePage() {
               sort={sort}
               onSortChange={handleSortChange}
               onPageChange={setPage}
+              onPageSizeChange={handlePageSizeChange}
               onFiltersChange={handleFiltersChange}
               onOpenSettings={handleOpenSettings}
             />

@@ -85,8 +85,5 @@ app.get('/events', (req, res) => {
 
 const PORT = process.env.PORT || 4002;
 app.listen(PORT, () => {
-  if (process.env.NODE_ENV !== 'production') {
-    // eslint-disable-next-line no-console
-    console.log(`table-service running on http://localhost:${PORT}`);
-  }
+  // Service started successfully
 });
