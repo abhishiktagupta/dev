@@ -21,6 +21,7 @@ type Props = {
   sort: string;
   onSortChange: (sort: string) => void;
   onPageChange: (page: number) => void;
+  onPageSizeChange?: (pageSize: number) => void;
   onFiltersChange: (filters: Record<string, string>) => void;
 };
 
@@ -38,7 +39,7 @@ type DataTableProps = Props & {
   onOpenSettings?: () => void;
 };
 
-export default function DataTable({ items, page, pageSize, total, totalPages, sort, onSortChange, onPageChange, onFiltersChange, onOpenSettings }: DataTableProps) {
+export default function DataTable({ items, page, pageSize, total, totalPages, sort, onSortChange, onPageChange, onPageSizeChange, onFiltersChange, onOpenSettings }: DataTableProps) {
   const { state } = useAppState();
   const [filters, setFilters] = useState<Record<string, string>>({});
   const debounced = useDebounce(filters, 400);
@@ -61,10 +62,7 @@ export default function DataTable({ items, page, pageSize, total, totalPages, so
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debounced]);
 
-  // Don't render table structure if there are no items
-  if (!items || items.length === 0) {
-    return null;
-  }
+  const hasItems = items && items.length > 0;
 
   return (
     <div className="panel">
@@ -88,7 +86,7 @@ export default function DataTable({ items, page, pageSize, total, totalPages, so
         </div>
       )}
       <div className="table-wrapper">
-        <table className="table" role="table" aria-label="Events table" aria-rowcount={items.length + 1} aria-colcount={headers.length}>
+        <table className="table" role="table" aria-label="Events table" aria-rowcount={(hasItems ? items.length : 0) + 1} aria-colcount={headers.length}>
           <thead>
             <tr role="row" aria-rowindex={1}>
               {headers.map((h, colIdx) => (
@@ -123,19 +121,49 @@ export default function DataTable({ items, page, pageSize, total, totalPages, so
             </tr>
           </thead>
           <tbody>
-            {items.map((row, idx) => (
-              <tr key={row.id} role="row" aria-rowindex={idx + 2}>
-                {headers.map((h, colIdx) => (
-                  <td key={h.key} role="gridcell" aria-colindex={colIdx + 1}>{renderCell(row, h.key)}</td>
-                ))}
+            {hasItems ? (
+              items.map((row, idx) => (
+                <tr key={row.id} role="row" aria-rowindex={idx + 2}>
+                  {headers.map((h, colIdx) => (
+                    <td key={h.key} role="gridcell" aria-colindex={colIdx + 1}>{renderCell(row, h.key)}</td>
+                  ))}
+                </tr>
+              ))
+            ) : (
+              <tr role="row">
+                <td colSpan={headers.length} className="table-empty-cell">
+                  <div className="table-empty-state">
+                    <p className="table-empty-message">No matching events.</p>
+                  </div>
+                </td>
               </tr>
-            ))}
+            )}
           </tbody>
         </table>
       </div>
 
       <div className="table-footer">
-        <div className="table-footer-info">Total: {total} • Page size: {pageSize}</div>
+        <div className="table-footer-left">
+          <div className="table-footer-info">Total: {total}</div>
+          {onPageSizeChange && (
+            <div className="page-size-selector">
+              <label htmlFor="page-size-select" className="page-size-label">
+                Records per page:
+              </label>
+              <select
+                id="page-size-select"
+                className="page-size-select"
+                value={pageSize}
+                onChange={(e) => onPageSizeChange(Number(e.target.value))}
+                aria-label="Select number of records per page"
+              >
+                <option value="5">5</option>
+                <option value="10">10</option>
+                <option value="20">20</option>
+              </select>
+            </div>
+          )}
+        </div>
         <Pagination page={page} totalPages={totalPages} onPageChange={onPageChange} />
       </div>
     </div>

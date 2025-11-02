@@ -27,7 +27,7 @@ const renderWithRouter = (initialEntries = ['/']) => {
 describe('App', () => {
   it('renders header with title', () => {
     renderWithRouter();
-    expect(screen.getByText('Event Analytics')).toBeInTheDocument();
+    expect(screen.getByText('Event Tracker')).toBeInTheDocument();
   });
 
   it('renders navigation links', () => {

@@ -14,14 +14,14 @@ export default function GraphPage() {
   const { data, loading, error } = useFetch<{ buckets: { timestamp: string; count: number }[]; total: number }>(url, [state.timeRange]);
 
   return (
-    <div className="row">
+    <div className="graph-page">
       <TimeRangePicker />
       {loading && <Loading />}
       {error && <Empty message={error.message} />}
       {!loading && !error && (
         data?.buckets?.length ? (
           <Suspense fallback={<Loading label="Loading chart..." />}>
-            <TimeSeriesChart buckets={data!.buckets} />
+            <TimeSeriesChart buckets={data!.buckets} timeRange={state.timeRange} />
           </Suspense>
         ) : (
           <Empty message="No events in the selected time range." />
