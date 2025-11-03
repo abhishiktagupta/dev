@@ -116,6 +116,80 @@ npm run dev
 ```
 Open the printed URL (typically `http://localhost:5173`).
 
+## Testing
+
+### Running Tests
+
+#### Frontend Tests
+
+```bash
+cd frontend
+npm test
+```
+
+**Test Commands:**
+
+```bash
+# Run all tests once
+npm test
+
+# Run tests in watch mode (auto-rerun on file changes)
+npm run test:watch
+
+# Run tests with coverage report
+npm run test:coverage
+```
+
+**Test Results:**
+- **14 Test Suites** - All passing
+- **111 Tests** - Comprehensive coverage
+- **Framework**: Jest + React Testing Library
+- **Test Time**: ~2 seconds
+
+**Test Coverage Includes:**
+- Component unit tests (DataTable, TimeSeriesChart, TimeRangePicker, Pagination, Modal, etc.)
+- Hook tests (useFetch, useDebounce)
+- Integration tests (TablePage, GraphPage)
+- Accessibility tests (keyboard navigation, ARIA attributes)
+- Store/context tests (timeRangeContext)
+
+#### Example Test Output
+
+```
+PASS src/test/components/DataTable.test.tsx
+PASS src/test/components/TimeSeriesChart.test.tsx
+PASS src/test/components/TimeRangePicker.test.tsx
+PASS src/test/components/Pagination.test.tsx
+PASS src/test/routes/TablePage.test.tsx
+PASS src/test/routes/GraphPage.test.tsx
+PASS src/test/App.test.tsx
+...
+
+Test Suites: 14 passed, 14 total
+Tests:       111 passed, 111 total
+Time:        1.998 s
+```
+
+### Writing Tests
+
+Tests are located in `frontend/src/test/` directory, mirroring the source structure.
+
+**Example Test Structure:**
+```
+src/test/
+├── components/
+│   ├── DataTable.test.tsx
+│   ├── TimeSeriesChart.test.tsx
+│   └── ...
+├── routes/
+│   ├── TablePage.test.tsx
+│   └── GraphPage.test.tsx
+├── hooks/
+│   ├── useFetch.test.ts
+│   └── useDebounce.test.ts
+└── utils.tsx (test utilities)
+```
+
 ## API
 - Graph service:
   - GET `http://localhost:4001/events/count?start=ISO&end=ISO`
