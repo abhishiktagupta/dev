@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useMemo, useReducer, useCallback } from 'react';
+import { createContext, useContext, useMemo, useReducer, useCallback, type ReactNode } from 'react';
 
 export type TimeRange = { start: string; end: string };
 export type AppState = {
@@ -37,7 +37,7 @@ const Ctx = createContext<{
   setVisibleColumns: (cols: string[]) => void;
 }>({} as any);
 
-export function TimeRangeProvider({ children }: { children: React.ReactNode }) {
+export function TimeRangeProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, initialState);
 
   // Stable function references to prevent unnecessary re-renders

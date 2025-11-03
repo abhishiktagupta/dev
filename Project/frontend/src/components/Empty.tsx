@@ -31,7 +31,6 @@ const EmptyIllustration = () => (
 );
 
 export default function Empty({ message = 'No data' }: { message?: string }) {
-  // React automatically escapes text content, so no need for manual escaping
   return (
     <div role="status" aria-live="polite" className="panel empty-state">
       <EmptyIllustration />

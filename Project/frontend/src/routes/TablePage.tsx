@@ -75,21 +75,29 @@ export default function TablePage() {
   }, []);
 
   return (
-    <>
+    <div aria-busy={loading} aria-live="polite">
       <TimeRangePicker />
       
-      {loading && !data && <Loading />}
+      {loading && !data && (
+        <div aria-live="polite" aria-busy="true">
+          <Loading />
+        </div>
+      )}
       
       {error && (
-        <div className="row">
+        <div className="row" role="alert" aria-live="assertive">
           <Empty message={error.message} />
         </div>
       )}
       
       {/* Always show DataTable when data is available, even if empty */}
       {!error && data && (
-        <div className="row">
-          <Suspense fallback={<Loading label="Loading table..." />}>
+        <div className="row" aria-live="polite" aria-atomic="true">
+          <Suspense fallback={
+            <div aria-live="polite" aria-busy="true">
+              <Loading label="Loading table..." />
+            </div>
+          }>
             <DataTable
               items={data.items || []}
               page={data.page || 1}
@@ -107,7 +115,11 @@ export default function TablePage() {
         </div>
       )}
       
-      {loading && data && <Loading label="Updating..." />}
+      {loading && data && (
+        <div aria-live="polite" aria-busy="true">
+          <Loading label="Updating..." />
+        </div>
+      )}
       
       <Modal
         isOpen={isSettingsOpen}
@@ -116,6 +128,6 @@ export default function TablePage() {
       >
         <ColumnSelector />
       </Modal>
-    </>
+    </div>
   );
 }

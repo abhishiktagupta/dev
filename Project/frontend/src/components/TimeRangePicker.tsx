@@ -1,13 +1,7 @@
 import { useMemo, useState, useEffect } from 'react';
 import { useAppState } from '../store/timeRangeContext';
-
-const validateTimeRange = (start: string, end: string): string | null => {
-  if (!start || !end) return null;
-  const startDate = new Date(toUTC(start));
-  const endDate = new Date(toUTC(end));
-  if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) return null;
-  return endDate.getTime() <= startDate.getTime() ? 'End time must be greater than start time' : null;
-};
+import { toLocalInput, toUTC } from '../utils/dateUtils';
+import { sanitizeInput, validateTimeRange, sanitizeForDisplay } from '../utils/validationUtils';
 
 export default function TimeRangePicker() {
   const { state, setTimeRange } = useAppState();
@@ -25,7 +19,7 @@ export default function TimeRangePicker() {
   }, [startLocal, endLocal]);
   
   useEffect(() => {
-    setError(validateTimeRange(startInputValue, endInputValue));
+    setError(validateTimeRange(startInputValue, endInputValue, toUTC));
   }, [startInputValue, endInputValue]);
 
   const createHandlers = (type: 'start' | 'end') => {
@@ -33,18 +27,26 @@ export default function TimeRangePicker() {
     const setValue = type === 'start' ? setStartInputValue : setEndInputValue;
     
     return {
-      onFocus: (e: React.FocusEvent<HTMLInputElement>) => 
-        setFocusedValue(prev => ({ ...prev, [type]: e.target.value })),
-      onChange: (e: React.ChangeEvent<HTMLInputElement>) => setValue(e.target.value),
+      onFocus: (e: React.FocusEvent<HTMLInputElement>) => {
+        const sanitized = sanitizeInput(e.target.value, false);
+        setFocusedValue(prev => ({ ...prev, [type]: sanitized }));
+      },
+      onChange: (e: React.ChangeEvent<HTMLInputElement>) => {
+        // Sanitize during typing to prevent XSS but allow partial input
+        const sanitized = sanitizeInput(e.target.value, false);
+        setValue(sanitized);
+      },
       onBlur: (e: React.FocusEvent<HTMLInputElement>) => {
-        const newValue = e.target.value;
+        // Strict validation on blur to ensure proper format
+        const sanitized = sanitizeInput(e.target.value, true);
+        const newValue = sanitized;
         const original = focusedValue[type] ?? originalValue;
         setFocusedValue(prev => ({ ...prev, [type]: undefined }));
         
         if (newValue && newValue !== original) {
           const validation = type === 'start' 
-            ? validateTimeRange(newValue, endInputValue)
-            : validateTimeRange(startInputValue, newValue);
+            ? validateTimeRange(newValue, endInputValue, toUTC)
+            : validateTimeRange(startInputValue, newValue, toUTC);
           
           if (validation) {
             setValue(originalValue);
@@ -72,7 +74,7 @@ export default function TimeRangePicker() {
             <circle cx="10" cy="10" r="9" stroke="currentColor" strokeWidth="2"/>
             <path d="M10 6V10M10 14H10.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
           </svg>
-          <span>{error}</span>
+          <span>{sanitizeForDisplay(error)}</span>
         </div>
       )}
       <div className="panel time-range-picker" role="group" aria-label="Time Range">
@@ -94,20 +96,4 @@ export default function TimeRangePicker() {
       </div>
     </div>
   );
-}
-
-function toLocalInput(iso: string) {
-  const d = new Date(iso);
-  const pad = (n: number) => String(n).padStart(2, '0');
-  const y = d.getFullYear();
-  const m = pad(d.getMonth() + 1);
-  const day = pad(d.getDate());
-  const hh = pad(d.getHours());
-  const mm = pad(d.getMinutes());
-  return `${y}-${m}-${day}T${hh}:${mm}`;
-}
-
-function toUTC(local: string) {
-  const d = new Date(local);
-  return d.toISOString();
 }

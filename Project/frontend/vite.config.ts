@@ -29,7 +29,7 @@ export default defineConfig({
         assetFileNames: 'assets/[name]-[hash].[ext]'
       },
       treeshake: {
-        moduleSideEffects: 'no-external',
+        moduleSideEffects: false,
         preset: 'smallest',
         propertyReadSideEffects: false,
         tryCatchDeoptimization: false
