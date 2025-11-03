@@ -20,121 +20,169 @@ Event Tracker is a React-based single-page application (SPA) that visualizes sec
 
 Architecture Diagram
 
-
-┌─────────────────────────────────────────────────────────────────┐
-│                         User Browser (Port:5173)               │
-│  ┌──────────────────────────────────────────────────────────┐  │
-│  │                   React Frontend (Vite)                   │ │
-│  │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐   │  │
-│  │  │   Routes     │  │  Components  │  │    Hooks     │   │  │
-│  │  │              │  │              │  │              │   │  │
-│  │  │ - GraphPage  │  │ - TimeSeries │  │ - useFetch   │   │  │
-│  │  │ - TablePage  │  │ - DataTable  │  │ - useDebounce│   │  │
-│  │  └──────────────┘  └──────────────┘  └──────────────┘   │  │
-│  │                                                           │  │
-│  │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐   │  │
-│  │  │    Store     │  │    Utils     │  │    Styles    │   │  │
-│  │  │              │  │              │  │              │   │  │
-│  │  │ Context API  │  │ - dateUtils  │  │ - theme.css  │   │  │
-│  │  │ + useReducer │  │ - chartUtils │  │ - style.css  │   │  │
-│  │  │              │  │ - validation │  │              │   │  │
-│  │  └──────────────┘  └──────────────┘  └──────────────┘   │  │
-│  └──────────────────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              │ HTTP/REST
-                              │
-        ┌─────────────────────┴─────────────────────┐
-        │                                           │
-┌───────▼────────┐                        ┌────────▼────────┐
-│ Graph Service  │                        │ Table Service   │
-│  (Port 4001)   │                        │  (Port 4002)    │
-│                │                        │                 │
-│ Endpoints:     │                        │ Endpoints:      │
-│ • /health      │                        │ • /health       │
-│ • /events/count│                        │ • /events       │
-│                │                        │                 │
-│ Features:      │                        │ Features:       │
-│ • Time bucketing│                       │ • Filtering     │
-│ • Aggregation  │                        │ • Sorting       │
-│ • Count calc   │                        │ • Pagination    │
-│ • Dynamic      │                        │ • Nested paths  │
-│   bucketing    │                        │ • Type-aware    │
-│   (sec/day)    │                        │   sorting       │
-│                │                        │                 │
-│ Data:          │                        │ Data:           │
-│ • Shared loader│                        │ • Shared loader │
-│ • In-memory    │                        │ • In-memory     │
-│   cache        │                        │   cache         │
-└───────┬────────┘                        └────────┬────────┘
-        │                                           │
-        └───────────────────┬───────────────────────┘
-                            │
-                    ┌───────▼────────┐
-                    │   Data.json    │
-                    │  (Shared Data) │
-                    │  (Loaded once, │
-                    │   cached)      │
-                    └────────────────┘
+```mermaid
+graph TB
+    Browser[User Browser<br/>Port: 5173]
+    
+    subgraph Frontend["React Frontend (Vite)"]
+        Routes[Routes<br/>- GraphPage<br/>- TablePage]
+        Components[Components<br/>- TimeSeriesChart<br/>- DataTable]
+        Hooks[Hooks<br/>- useFetch<br/>- useDebounce]
+        Store[Store<br/>Context API + useReducer]
+        Utils[Utils<br/>- dateUtils<br/>- chartUtils<br/>- validationUtils]
+        Styles[Styles<br/>- theme.css<br/>- style.css]
+    end
+    
+    subgraph Backend["Backend Services"]
+        GraphService[Graph Service<br/>Port: 4001<br/><br/>Endpoints:<br/>• /health<br/>• /events/count<br/><br/>Features:<br/>• Time bucketing<br/>• Aggregation<br/>• Count calculation<br/>• Dynamic bucketing sec/day]
+        
+        TableService[Table Service<br/>Port: 4002<br/><br/>Endpoints:<br/>• /health<br/>• /events<br/><br/>Features:<br/>• Filtering<br/>• Sorting<br/>• Pagination<br/>• Nested paths<br/>• Type-aware sorting]
+    end
+    
+    DataFile[(Data.json<br/>Shared Data<br/>Loaded once, cached)]
+    
+    Browser -->|HTTP/REST| Frontend
+    Frontend -->|HTTP/REST| GraphService
+    Frontend -->|HTTP/REST| TableService
+    GraphService -->|Read| DataFile
+    TableService -->|Read| DataFile
+    
+    style Browser fill:#4A90E2
+    style Frontend fill:#7B68EE
+    style Backend fill:#50C878
+    style DataFile fill:#FFD700
+```
 
 
 Component Hierarchy
 
-
-App (Root)
-├── TimeRangeProvider (Context)
-│   ├── Header
-│   │   ├── Logo
-│   │   ├── Navigation (Graph/Table)
-│   │   └── Title
-│   │
-│   └── Main Content
-│       ├── TimeRangePicker (Shared)
-│       │
-│       ├── Routes
-│       │   ├── GraphPage (Lazy)
-│       │   │   ├── TimeSeriesChart
-│       │   │   └── Loading/Empty States
-│       │   │
-│       │   └── TablePage (Lazy)
-│       │       ├── DataTable (Lazy)
-│       │       │   ├── Column Headers
-│       │       │   ├── Filter Inputs
-│       │       │   ├── Table Rows
-│       │       │   └── Pagination
-│       │       ├── ColumnSelector (Modal)
-│       │       └── Loading/Empty States
-│       │
-│       └── Suspense Boundaries
+```mermaid
+graph TD
+    App[App Root]
+    Provider[TimeRangeProvider Context]
+    
+    subgraph HeaderSection[Header]
+        Logo[Logo]
+        Nav[Navigation<br/>Graph/Table]
+        Title[Title]
+    end
+    
+    MainContent[Main Content]
+    TimePicker[TimeRangePicker<br/>Shared Component]
+    
+    subgraph RoutesSection[Routes]
+        GraphPage[GraphPage<br/>Lazy Loaded]
+        TablePage[TablePage<br/>Lazy Loaded]
+    end
+    
+    subgraph GraphComponents[GraphPage Components]
+        TimeSeriesChart[TimeSeriesChart]
+        GraphLoading[Loading/Empty States]
+    end
+    
+    subgraph TableComponents[TablePage Components]
+        DataTable[DataTable<br/>Lazy Loaded]
+        ColumnSelector[ColumnSelector Modal]
+        TableLoading[Loading/Empty States]
+    end
+    
+    subgraph DataTableComponents[DataTable Components]
+        ColumnHeaders[Column Headers]
+        FilterInputs[Filter Inputs]
+        TableRows[Table Rows]
+        Pagination[Pagination]
+    end
+    
+    Suspense[Suspense Boundaries]
+    
+    App --> Provider
+    Provider --> HeaderSection
+    Provider --> MainContent
+    HeaderSection --> Logo
+    HeaderSection --> Nav
+    HeaderSection --> Title
+    
+    MainContent --> TimePicker
+    MainContent --> RoutesSection
+    MainContent --> Suspense
+    
+    RoutesSection --> GraphPage
+    RoutesSection --> TablePage
+    
+    GraphPage --> TimeSeriesChart
+    GraphPage --> GraphLoading
+    
+    TablePage --> DataTable
+    TablePage --> ColumnSelector
+    TablePage --> TableLoading
+    
+    DataTable --> DataTableComponents
+    DataTableComponents --> ColumnHeaders
+    DataTableComponents --> FilterInputs
+    DataTableComponents --> TableRows
+    DataTableComponents --> Pagination
+    
+    style App fill:#4A90E2
+    style Provider fill:#7B68EE
+    style GraphPage fill:#50C878
+    style TablePage fill:#50C878
+    style DataTable fill:#FFD700
+```
 
 
 Data Flow
 
-
-User Input (TimeRangePicker)
-    │
-    ├─> Context State Update (useReducer)
-    │       │
-    │       └─> TimeRangeProvider dispatches action
-    │               │
-    │               └─> State updated
-    │
-    ├─> URL Construction (useMemo)
-    │       │
-    │       └─> useFetch Hook
-    │               │
-    │               ├─> Graph Service API Call
-    │               │       │
-    │               │       └─> Returns: { buckets, total }
-    │               │
-    │               └─> Table Service API Call
-    │                       │
-    │                       └─> Returns: { items, page, total }
-    │
-    └─> Component Re-render (Optimized)
-            │
-            ├─> TimeSeriesChart (with memoization)
-            └─> DataTable (with memoization)
+```mermaid
+flowchart TD
+    UserInput[User Input<br/>TimeRangePicker]
+    
+    subgraph StateManagement[State Management]
+        ContextUpdate[Context State Update<br/>useReducer]
+        DispatchAction[TimeRangeProvider<br/>dispatches action]
+        StateUpdated[State Updated]
+    end
+    
+    subgraph APILayer[API Layer]
+        URLConstruction[URL Construction<br/>useMemo]
+        UseFetch[useFetch Hook]
+        
+        GraphAPICall[Graph Service API Call<br/>/events/count]
+        GraphResponse[Returns:<br/>buckets, total]
+        
+        TableAPICall[Table Service API Call<br/>/events]
+        TableResponse[Returns:<br/>items, page, total]
+    end
+    
+    subgraph Rendering[Component Rendering]
+        ComponentRerender[Component Re-render<br/>Optimized]
+        TimeSeriesChart[TimeSeriesChart<br/>with memoization]
+        DataTable[DataTable<br/>with memoization]
+    end
+    
+    UserInput --> ContextUpdate
+    ContextUpdate --> DispatchAction
+    DispatchAction --> StateUpdated
+    
+    UserInput --> URLConstruction
+    URLConstruction --> UseFetch
+    
+    UseFetch --> GraphAPICall
+    UseFetch --> TableAPICall
+    
+    GraphAPICall --> GraphResponse
+    TableAPICall --> TableResponse
+    
+    GraphResponse --> ComponentRerender
+    TableResponse --> ComponentRerender
+    
+    ComponentRerender --> TimeSeriesChart
+    ComponentRerender --> DataTable
+    
+    style UserInput fill:#4A90E2
+    style StateManagement fill:#7B68EE
+    style APILayer fill:#50C878
+    style Rendering fill:#FFD700
+```
 
 
 
@@ -155,28 +203,23 @@ Architecture Principles
 
 Service Overview
 
-
-┌─────────────────────────────────────────────────────────────┐
-│                    Microservices Layer                      │
-│                                                             │
-│  ┌──────────────────────┐      ┌──────────────────────┐   │
-│  │   Graph Service      │      │   Table Service      │   │
-│  │   Port: 4001         │      │   Port: 4002         │   │
-│  │                      │      │                      │   │
-│  │  Responsibilities:   │      │  Responsibilities:   │   │
-│  │  • Time aggregation  │      │  • Data filtering    │   │
-│  │  • Event bucketing   │      │  • Sorting           │   │
-│  │  • Count calculation │      │  • Pagination        │   │
-│  │  • Chart data prep   │      │  • Field searching   │   │
-│  └──────────┬───────────┘      └──────────┬───────────┘   │
-│             │                              │               │
-│             └──────────────┬───────────────┘               │
-│                            │                               │
-│                    ┌───────▼────────┐                      │
-│                    │  Data.json     │                      │
-│                    │  (Shared Data) │                      │
-│                    └────────────────┘                      │
-└─────────────────────────────────────────────────────────────┘
+```mermaid
+graph TB
+    subgraph Microservices["Microservices Layer"]
+        GraphService[Graph Service<br/>Port: 4001<br/><br/>Responsibilities:<br/>• Time aggregation<br/>• Event bucketing<br/>• Count calculation<br/>• Chart data preparation]
+        
+        TableService[Table Service<br/>Port: 4002<br/><br/>Responsibilities:<br/>• Data filtering<br/>• Sorting<br/>• Pagination<br/>• Field searching]
+    end
+    
+    DataFile[(Data.json<br/>Shared Data)]
+    
+    GraphService --> DataFile
+    TableService --> DataFile
+    
+    style GraphService fill:#4A90E2
+    style TableService fill:#50C878
+    style DataFile fill:#FFD700
+```
 
 
 
@@ -233,35 +276,41 @@ Rationale:
 
 Processing Flow
 
-
-1. Receive Request
-   │
-   ├─> Validate Date Parameters
-   │       │
-   │       └─> Return 400 if invalid
-   │
-   ├─> Determine Bucket Size
-   │       │
-   │       └─> Calculate time difference
-   │           └─> Select bucketing strategy
-   │
-   ├─> Load Events (from cache or file)
-   │       │
-   │       └─> dataLoader.loadEvents()
-   │
-   ├─> Filter by Time Range
-   │       │
-   │       └─> Inclusive boundaries (start ≤ event ≤ end)
-   │
-   ├─> Aggregate into Buckets
-   │       │
-   │       └─> Map<timestamp, count>
-   │
-   ├─> Sort by Timestamp
-   │       │
-   │       └─> Chronological order
-   │
-   └─> Return JSON Response
+```mermaid
+flowchart TD
+    Start[Receive Request]
+    
+    ValidateParams{Validate Date<br/>Parameters}
+    Return400[Return 400<br/>if invalid]
+    
+    DetermineBucket[Determine Bucket Size<br/>Calculate time difference<br/>Select bucketing strategy]
+    
+    LoadEvents[Load Events<br/>from cache or file<br/>dataLoader.loadEvents]
+    
+    FilterTimeRange[Filter by Time Range<br/>Inclusive boundaries<br/>start ≤ event ≤ end]
+    
+    Aggregate[Aggregate into Buckets<br/>Map timestamp, count]
+    
+    Sort[Sort by Timestamp<br/>Chronological order]
+    
+    ReturnResponse[Return JSON Response]
+    
+    Start --> ValidateParams
+    ValidateParams -->|Invalid| Return400
+    ValidateParams -->|Valid| DetermineBucket
+    DetermineBucket --> LoadEvents
+    LoadEvents --> FilterTimeRange
+    FilterTimeRange --> Aggregate
+    Aggregate --> Sort
+    Sort --> ReturnResponse
+    
+    style Start fill:#4A90E2
+    style ValidateParams fill:#FF6B6B
+    style Return400 fill:#FF6B6B
+    style LoadEvents fill:#50C878
+    style Aggregate fill:#FFD700
+    style ReturnResponse fill:#4A90E2
+```
 
 
 Implementation Details
@@ -330,43 +379,39 @@ GET `/events`
 
 Processing Flow
 
-
-1. Receive Request
-   │
-   ├─> Parse Query Parameters
-   │       ├─> Time range (start, end)
-   │       ├─> Pagination (page, pageSize)
-   │       ├─> Sorting (sort field:direction)
-   │       └─> Filters (field:value pairs)
-   │
-   ├─> Load Events (from cache or file)
-   │       │
-   │       └─> dataLoader.loadEvents()
-   │
-   ├─> Filter by Time Range
-   │       │
-   │       └─> Inclusive boundaries
-   │
-   ├─> Apply Field Filters
-   │       │
-   │       ├─> Parse filter string
-   │       ├─> Extract field paths (supports nested: "attacker.ip")
-   │       └─> Case-insensitive substring matching
-   │
-   ├─> Sort Data
-   │       │
-   │       ├─> Extract sort field and direction
-   │       ├─> Handle nested paths (e.g., "attacker.name")
-   │       ├─> Type-aware sorting (date, number, string)
-   │       └─> Apply sort direction (asc/desc)
-   │
-   ├─> Calculate Pagination
-   │       │
-   │       ├─> Calculate total items
-   │       ├─> Calculate total pages
-   │       └─> Slice items for current page
-   │
-   └─> Return JSON Response
+```mermaid
+flowchart TD
+    Start[Receive Request]
+    
+    ParseParams[Parse Query Parameters<br/>• Time range start, end<br/>• Pagination page, pageSize<br/>• Sorting sort field:direction<br/>• Filters field:value pairs]
+    
+    LoadEvents[Load Events<br/>from cache or file<br/>dataLoader.loadEvents]
+    
+    FilterTimeRange[Filter by Time Range<br/>Inclusive boundaries]
+    
+    ApplyFilters[Apply Field Filters<br/>• Parse filter string<br/>• Extract field paths nested<br/>• Case-insensitive substring matching]
+    
+    SortData[Sort Data<br/>• Extract sort field and direction<br/>• Handle nested paths<br/>• Type-aware sorting date, number, string<br/>• Apply sort direction asc/desc]
+    
+    CalculatePagination[Calculate Pagination<br/>• Calculate total items<br/>• Calculate total pages<br/>• Slice items for current page]
+    
+    ReturnResponse[Return JSON Response]
+    
+    Start --> ParseParams
+    ParseParams --> LoadEvents
+    LoadEvents --> FilterTimeRange
+    FilterTimeRange --> ApplyFilters
+    ApplyFilters --> SortData
+    SortData --> CalculatePagination
+    CalculatePagination --> ReturnResponse
+    
+    style Start fill:#4A90E2
+    style ParseParams fill:#7B68EE
+    style LoadEvents fill:#50C878
+    style ApplyFilters fill:#FFD700
+    style SortData fill:#FF6B6B
+    style ReturnResponse fill:#4A90E2
+```
 
 
 Filtering Logic
